@@ -1,0 +1,63 @@
+{
+    "name": "Twitter node",
+    "permissions": {
+        "network": "Needs to access twitter API"
+    },
+    "options": [{
+        "title": "Generic",
+        "type": "section"
+    }, {
+        "title": "Search/Hashtag",
+        "ui_width": 6,
+        "name": "search",
+        "type": "string",
+        "default": "#test"
+    }, {
+        "title": "Foreground Color",
+        "ui_width": 3,
+        "name": "foreground",
+        "type": "color",
+        "default": [1,1,1,1]
+    },{
+        "title": "Background Color",
+        "ui_width": 3,
+        "name": "background",
+        "type": "color",
+        "default": [0,0,0,1]
+    },{
+        "title": "Switch time",
+        "ui_width": 3,
+        "name": "switch_time",
+        "type": "duration",
+        "default": 5
+    },
+        
+    {
+        "title": "Authenication",
+        "type": "section"
+    }, {
+        "title": "API Key",
+        "ui_width": 6,
+        "name": "consumer_key",
+        "type": "string",
+        "default": ""
+    },{
+        "title": "API Secret",
+        "ui_width": 6,
+        "name": "consumer_secret",
+        "type": "string",
+        "default": ""
+    },{
+        "title": "Access Token",
+        "ui_width": 6,
+        "name": "access_token",
+        "type": "string",
+        "default": ""
+    },{
+        "title": "Access Token Secret",
+        "ui_width": 6,
+        "name": "access_token_secret",
+        "type": "string",
+        "default": ""
+    }]
+}

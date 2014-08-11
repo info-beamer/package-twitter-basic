@@ -1,0 +1,138 @@
+#!/usr/bin/python
+import os
+import json
+import urllib
+import datetime
+from itertools import cycle
+from threading import Thread
+from Queue import Queue
+
+from tweepy.streaming import StreamListener
+from tweepy import OAuthHandler
+from tweepy import Stream
+
+from hosted import CONFIG, NODE
+
+CONFIG.restart_on_update()
+
+TMPDIR = os.environ['TMPDIR']
+
+def transform(tweet):
+    is_retweet = hasattr(tweet, 'retweeted_status')
+    if is_retweet:
+        return
+
+    if tweet.user.default_profile:
+        return
+
+    if tweet.user.default_profile_image:
+        return
+
+    if tweet.text.startswith("@"):
+        return
+
+    replacements = []
+    for url in tweet.entities.get('urls', ()):
+        replacements.append((url['indices'], url['display_url']))
+    replacements.sort(reverse=True)
+
+    text = unicode(tweet.text)
+    for (start, end), replacement in replacements:
+        text = text[:start] + replacement + text[end:]
+    text = text.replace("\n", " ")
+    text = text.replace("&amp;", "&") # wtf?
+
+    for media in tweet.entities.get('media', ()):
+        background_image = media['media_url']
+        break
+    else:
+        background_image = None
+
+    return dict(
+        screen_name = tweet.user.screen_name,
+        profile_image = tweet.user.profile_image_url,
+        text = text,
+        background_image = background_image,
+        created_at = tweet.created_at,
+    )
+
+
+incoming = Queue()
+
+class StreamHandler(StreamListener):
+    """ A listener handles tweets are the received from the stream.
+    This is a basic listener that just prints received tweets to stdout.
+
+    """
+    def on_status(self, tweet):
+        # print >>sys.stderr, tweet
+        tweet = transform(tweet)
+        if not tweet:
+            return
+
+        incoming.put(tweet)
+
+    def on_error(self, status):
+        print status
+
+class Resizer(Thread):
+    def run(self):
+        next_profile_image = cycle('twitter-profile-%d.jpg' % n for n in range(10)).next
+        next_background_image = cycle('twitter-background-%d.jpg' % n for n in range(10)).next
+        while 1:
+            tweet = incoming.get()
+
+            # google resizer: http://carlo.zottmann.org/2013/04/14/google-image-resizer/
+            data = urllib.urlencode([
+                ('container', 'focus'),
+                ('url', tweet['profile_image']),
+            ])
+            image = urllib.urlopen("https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?%s" % data)
+
+            profile_image = next_profile_image()
+            # print "writing profile %s" % profile_image
+            with file(os.path.join(TMPDIR, profile_image), "wb") as f:
+                f.write(image.read())
+            tweet['profile_image'] = profile_image
+            try:
+                os.unlink(profile_image)
+            except:
+                pass
+            os.symlink(os.path.join(TMPDIR, profile_image), profile_image)
+
+
+            if tweet['background_image']:
+                data = urllib.urlencode([
+                    ('container', 'focus'),
+                    ('url', tweet['background_image']),
+                ])
+                image = urllib.urlopen("https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?%s" % data)
+
+                background_image = next_background_image()
+                # print "writing background %s" % background_image
+                with file(os.path.join(TMPDIR, background_image), "wb") as f:
+                    f.write(image.read())
+                tweet['background_image'] = background_image
+                try:
+                    os.unlink(background_image)
+                except:
+                    pass
+                os.symlink(os.path.join(TMPDIR, background_image), background_image)
+            else:
+                del tweet['background_image']
+            
+            tweet['age'] = (datetime.datetime.utcnow() - tweet['created_at']).total_seconds()
+            del tweet['created_at']
+
+            NODE["/add"](json.dumps(tweet, ensure_ascii=False).encode("utf8"))
+
+if __name__ == '__main__':
+    auth = OAuthHandler(CONFIG['consumer_key'], CONFIG['consumer_secret'])
+    auth.set_access_token(CONFIG['access_token'], CONFIG['access_token_secret'])
+
+    resizer = Resizer()
+    resizer.daemon = True
+    resizer.start()
+
+    stream = Stream(auth, StreamHandler())
+    stream.filter(track=CONFIG['search'].split())
