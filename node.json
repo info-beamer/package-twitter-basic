@@ -33,7 +33,7 @@
     },
         
     {
-        "title": "Authenication",
+        "title": "Authentication",
         "type": "section"
     }, {
         "title": "API Key",
