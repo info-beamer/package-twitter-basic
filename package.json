@@ -1,5 +1,6 @@
 {
     "name": "Twitter Wall",
     "author": "fw@dividuum.de",
-    "desc": "A basic twitter wall"
+    "desc": "A basic twitter wall",
+    "repository": "https://github.com/info-beamer/package-twitter-basic"
 }
