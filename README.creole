@@ -1,0 +1,15 @@
+= Basic Twitter Wall
+
+== Description
+
+This is a basic twitter wall that will use the streaming API to collect tweets. The last 10 tweets
+will be shown on the screen. If there's a media file attached to the tweet it will be downloaded as
+well and will be shown in the background.
+
+== Settings
+
+=== Twitter API Keys
+
+You have to fill those in. Otherwise your device won't be able to use the twitter API.
+You need to create a new app on twitter.com. Then use the provided API keys to 
+configure this node.
