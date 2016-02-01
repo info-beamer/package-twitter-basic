@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import sys
 import os
 import json
 import urllib
@@ -18,15 +19,16 @@ CONFIG.restart_on_update()
 TMPDIR = os.environ['TMPDIR']
 
 def transform(tweet):
+    print >>sys.stderr, tweet
     is_retweet = hasattr(tweet, 'retweeted_status')
     if is_retweet:
         return
 
-    if tweet.user.default_profile:
-        return
+    # if tweet.user.default_profile:
+    #     return
 
-    if tweet.user.default_profile_image:
-        return
+    # if tweet.user.default_profile_image:
+    #     return
 
     if tweet.text.startswith("@"):
         return
@@ -65,15 +67,20 @@ class StreamHandler(StreamListener):
 
     """
     def on_status(self, tweet):
-        # print >>sys.stderr, tweet
+        print >>sys.stderr, "STATUS", tweet
         tweet = transform(tweet)
         if not tweet:
             return
 
         incoming.put(tweet)
 
-    def on_error(self, status):
-        print status
+    # def on_data(self, data):
+    #     print >>sys.stderr, "DATA", data
+    #     with file("foo", "a+b") as f:
+    #         f.write(json.dumps(data))
+
+    def on_error(self, error):
+        print >>sys.stderr, "ERROR", error 
 
 class Resizer(Thread):
     def run(self):
@@ -135,4 +142,4 @@ if __name__ == '__main__':
     resizer.start()
 
     stream = Stream(auth, StreamHandler())
-    stream.filter(track=CONFIG['search'].split())
+    stream.userstream()

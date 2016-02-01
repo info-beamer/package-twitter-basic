@@ -2,7 +2,8 @@
 # Copyright 2009-2010 Joshua Roesslein
 # See LICENSE for details.
 
-from tweepy.error import TweepError
+from __future__ import absolute_import, print_function
+
 from tweepy.utils import parse_datetime, parse_html_value, parse_a_href
 
 
@@ -18,17 +19,20 @@ class ResultSet(list):
         if self._max_id:
             return self._max_id
         ids = self.ids()
-        return max(ids) if ids else None
+        # Max_id is always set to the *smallest* id, minus one, in the set
+        return (min(ids) - 1) if ids else None
 
     @property
     def since_id(self):
         if self._since_id:
             return self._since_id
         ids = self.ids()
-        return min(ids) if ids else None
+        # Since_id is always set to the *greatest* id in the set
+        return max(ids) if ids else None
 
     def ids(self):
         return [item.id for item in self if hasattr(item, 'id')]
+
 
 class Model(object):
 
@@ -51,12 +55,19 @@ class Model(object):
 
     @classmethod
     def parse_list(cls, api, json_list):
-        """Parse a list of JSON objects into a result set of model instances."""
+        """
+            Parse a list of JSON objects into
+            a result set of model instances.
+        """
         results = ResultSet()
         for obj in json_list:
             if obj:
                 results.append(cls.parse(api, obj))
         return results
+
+    def __repr__(self):
+        state = ['%s=%s' % (k, repr(v)) for (k, v) in vars(self).items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(state))
 
 
 class Status(Model):
@@ -64,6 +75,7 @@ class Status(Model):
     @classmethod
     def parse(cls, api, json):
         status = cls(api)
+        setattr(status, '_json', json)
         for k, v in json.items():
             if k == 'user':
                 user_model = getattr(api.parser.model_factory, 'user') if api else User
@@ -102,12 +114,27 @@ class Status(Model):
     def favorite(self):
         return self._api.create_favorite(self.id)
 
+    def __eq__(self, other):
+        if isinstance(other, Status):
+            return self.id == other.id
+
+        return NotImplemented
+
+    def __ne__(self, other):
+        result = self == other
+
+        if result is NotImplemented:
+            return result
+
+        return not result
+
 
 class User(Model):
 
     @classmethod
     def parse(cls, api, json):
         user = cls(api)
+        setattr(user, '_json', json)
         for k, v in json.items():
             if k == 'created_at':
                 setattr(user, k, parse_datetime(v))
@@ -153,16 +180,24 @@ class User(Model):
         self.following = False
 
     def lists_memberships(self, *args, **kargs):
-        return self._api.lists_memberships(user=self.screen_name, *args, **kargs)
+        return self._api.lists_memberships(user=self.screen_name,
+                                           *args,
+                                           **kargs)
 
     def lists_subscriptions(self, *args, **kargs):
-        return self._api.lists_subscriptions(user=self.screen_name, *args, **kargs)
+        return self._api.lists_subscriptions(user=self.screen_name,
+                                             *args,
+                                             **kargs)
 
     def lists(self, *args, **kargs):
-        return self._api.lists(user=self.screen_name, *args, **kargs)
+        return self._api.lists_all(user=self.screen_name,
+                                   *args,
+                                   **kargs)
 
     def followers_ids(self, *args, **kargs):
-        return self._api.followers_ids(user_id=self.id, *args, **kargs)
+        return self._api.followers_ids(user_id=self.id,
+                                       *args,
+                                       **kargs)
 
 
 class DirectMessage(Model):
@@ -233,13 +268,17 @@ class SearchResults(ResultSet):
     @classmethod
     def parse(cls, api, json):
         metadata = json['search_metadata']
-        results = SearchResults(metadata.get('max_id'), metadata.get('since_id'))
+        results = SearchResults()
         results.refresh_url = metadata.get('refresh_url')
         results.completed_in = metadata.get('completed_in')
         results.query = metadata.get('query')
+        results.count = metadata.get('count')
+        results.next_results = metadata.get('next_results')
+
+        status_model = getattr(api.parser.model_factory, 'status') if api else Status
 
         for status in json['statuses']:
-            results.append(Status.parse(api, status))
+            results.append(status_model.parse(api, status))
         return results
 
 
@@ -248,7 +287,7 @@ class List(Model):
     @classmethod
     def parse(cls, api, json):
         lst = List(api)
-        for k,v in json.items():
+        for k, v in json.items():
             if k == 'user':
                 setattr(lst, k, User.parse(api, v))
             elif k == 'created_at':
@@ -273,7 +312,9 @@ class List(Model):
         return self._api.destroy_list(self.slug)
 
     def timeline(self, **kargs):
-        return self._api.list_timeline(self.user.screen_name, self.slug, **kargs)
+        return self._api.list_timeline(self.user.screen_name,
+                                       self.slug,
+                                       **kargs)
 
     def add_member(self, id):
         return self._api.add_list_member(self.slug, id)
@@ -282,10 +323,14 @@ class List(Model):
         return self._api.remove_list_member(self.slug, id)
 
     def members(self, **kargs):
-        return self._api.list_members(self.user.screen_name, self.slug, **kargs)
+        return self._api.list_members(self.user.screen_name,
+                                      self.slug,
+                                      **kargs)
 
     def is_member(self, id):
-        return self._api.is_list_member(self.user.screen_name, self.slug, id)
+        return self._api.is_list_member(self.user.screen_name,
+                                        self.slug,
+                                        id)
 
     def subscribe(self):
         return self._api.subscribe_list(self.user.screen_name, self.slug)
@@ -294,16 +339,21 @@ class List(Model):
         return self._api.unsubscribe_list(self.user.screen_name, self.slug)
 
     def subscribers(self, **kargs):
-        return self._api.list_subscribers(self.user.screen_name, self.slug, **kargs)
+        return self._api.list_subscribers(self.user.screen_name,
+                                          self.slug,
+                                          **kargs)
 
     def is_subscribed(self, id):
-        return self._api.is_subscribed_list(self.user.screen_name, self.slug, id)
+        return self._api.is_subscribed_list(self.user.screen_name,
+                                            self.slug,
+                                            id)
+
 
 class Relation(Model):
     @classmethod
     def parse(cls, api, json):
         result = cls(api)
-        for k,v in json.items():
+        for k, v in json.items():
             if k == 'value' and json['kind'] in ['Tweet', 'LookedupStatus']:
                 setattr(result, k, Status.parse(api, v))
             elif k == 'results':
@@ -312,17 +362,19 @@ class Relation(Model):
                 setattr(result, k, v)
         return result
 
+
 class Relationship(Model):
     @classmethod
     def parse(cls, api, json):
         result = cls(api)
-        for k,v in json.items():
+        for k, v in json.items():
             if k == 'connections':
                 setattr(result, 'is_following', 'following' in v)
                 setattr(result, 'is_followed_by', 'followed_by' in v)
             else:
                 setattr(result, k, v)
         return result
+
 
 class JSONModel(Model):
 
@@ -405,6 +457,17 @@ class Place(Model):
             results.append(cls.parse(api, obj))
         return results
 
+
+class Media(Model):
+
+    @classmethod
+    def parse(cls, api, json):
+        media = cls(api)
+        for k, v in json.items():
+            setattr(media, k, v)
+        return media
+
+
 class ModelFactory(object):
     """
     Used by parsers for creating instances
@@ -422,9 +485,9 @@ class ModelFactory(object):
     list = List
     relation = Relation
     relationship = Relationship
+    media = Media
 
     json = JSONModel
     ids = IDModel
     place = Place
     bounding_box = BoundingBox
-

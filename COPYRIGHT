@@ -21,3 +21,27 @@ THE SOFTWARE.
 ==========================================================================
 
 The font is Ubuntu-R.ttf from http://font.ubuntu.com/. See FONT-LICENSE.txt
+
+Directory tweepy:
+    Twitter for python
+
+    https://github.com/tweepy/tweepy
+    https://github.com/tweepy/tweepy/blob/master/LICENSE
+
+Directory requests_oauthlib:
+    OAuthlib support for Python-Requests
+
+    https://github.com/requests/requests-oauthlib
+    https://github.com/requests/requests-oauthlib/blob/master/LICENSE
+
+Directory oauthlib
+    A generic, spec-compliant, thorough implementation of the OAuth
+    request-signing logic
+
+    https://github.com/idan/oauthlib
+    https://github.com/idan/oauthlib/blob/master/LICENSE
+
+six.py
+    Python 2 and 3 compatibility utilities
+
+    https://pypi.python.org/pypi/six/
