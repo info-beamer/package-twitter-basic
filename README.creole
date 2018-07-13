@@ -13,3 +13,12 @@ well and will be shown in the background.
 You have to fill those in. Otherwise your device won't be able to use the twitter API.
 You need to create a new app on twitter.com. Then use the provided API keys to 
 configure this node.
+
+== Transitioning to other packages
+
+This package is obsolete now as it  didn't really integrate into any other
+packages. The Schedule Player package offers a better option to show tweets
+and you can freely mix a our twitter content with other content. Have
+a look at:
+
+https://info-beamer.com/pkg/4765
